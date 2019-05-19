@@ -63,6 +63,12 @@ export default class App extends React.Component {
     joinGame: () => {
       this.joinGame();
     },
+    setAction: () => {
+      this.action();
+    },
+    breakAction: () => {
+      this.action();
+    },
     isConnected: false,
     data: null,
     messages: [],
@@ -71,6 +77,7 @@ export default class App extends React.Component {
     games: [],
     game: null,
     user: null,
+    timers: [],
     errorMessage: null,
     location: {
       latitude: LATITUDE + SPACE,
@@ -79,6 +86,7 @@ export default class App extends React.Component {
       longitudeDelta: LONGITUDE_DELTA,
     },
     intersectGame: null,
+    timers: [],
   };
 
   _reconnect() {
@@ -152,6 +160,13 @@ export default class App extends React.Component {
             Alert.alert('Ошибка', packet.message, [], { cancelable: true });
             break;
           }
+          case 'sync_timer': {
+            console.log(packet)
+            this.setState({
+              timers: [...packet.message]
+            })
+            break;
+          }
         }
       } catch (e) {
         console.error(e);
@@ -176,8 +191,7 @@ export default class App extends React.Component {
   }
 
   componentWillMount() {
- 
-    if (Platform.OS === 'android' && !Constants.isDevice) {
+     if (Platform.OS === 'android' && !Constants.isDevice) {
       this.setState({
         errorMessage:
           'Oops, this will not work on Sketch in an Android emulator. Try it on your device!',
@@ -299,7 +313,15 @@ export default class App extends React.Component {
     );    
   }
 
-  action() {}
+  async action() {
+    const p = await this._getLocationAsync();
+    this.ws.send(
+      JSON.stringify({
+        type: 'action',
+        message: p,
+      })
+    ); 
+  }
 
   _updateGeoPoint(p) {
     this.setState({

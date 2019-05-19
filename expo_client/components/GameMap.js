@@ -26,11 +26,34 @@ export default class GameMap extends React.Component {
   }
 
   _renderActionButton() {
-    if(this.props.game) {
-      return null;
+    if(this.props.game && this._isAllowedToAction()) {
+      const role = this._findMyRole(this.props.game, this.props.user);
+
+      if(role === 'set') {
+        return (
+          <TouchableOpacity
+            style={[styles.button, styles.right]}
+            onPress={() => {
+              this.props.setAction()
+            }}>
+            <Ionicons name="md-arrow-round-down" size={32} color="green" />
+          </TouchableOpacity>       
+        )        
+      } else {
+        return (
+          <TouchableOpacity
+            style={[styles.button, styles.right]}
+            onPress={() => {
+              this.props.breakAction()
+            }}>
+            <Ionicons name="md-arrow-round-up" size={32} color="green" />
+          </TouchableOpacity>       
+        )
+      }
     }
+
     if(this.props.intersectGame) {
-      if(this.props.intersectGame.state !== 'started' && this.props.intersectGame.state !== 'play') {
+      if(this.props.intersectGame.state !== 'started') {
         return (
           <TouchableOpacity
             style={[styles.button, styles.right]}
@@ -82,7 +105,7 @@ export default class GameMap extends React.Component {
   _isAllowedToAction() {
     return this.props.game && 
       this.props.intersectGame && 
-      this.props.game.id === this.props.intersectGame.id && this.props.game.state === "started";
+      this.props.game.id === this.props.intersectGame.id && this.props.game.state === "play";
   }
 
   _renderGameState() {
@@ -112,7 +135,7 @@ export default class GameMap extends React.Component {
       const role = this._findMyRole(this.props.game, this.props.user);
 
       if(state === "not_started") {
-        messages.push(<Text>Ожидаем игроков. Всего: ${this.props.game.players.length}</Text>)
+        messages.push(<Text>Ожидаем игроков. Всего: {this.props.game.players.length}</Text>)
       } else {
         messages.push(<Text>Игра уже началась</Text>)
       }
@@ -141,14 +164,8 @@ export default class GameMap extends React.Component {
       showsUserLocation: true,
     };
 
-    return (
-      <View style={[styles.flex]}>
-        <MapView
-          //  onRegionChange={this._handleMapRegionChange.bind(this)}
-          style={styles.map}
-          initialRegion={this.props.location}
-          {...mapOptions}
-          onPress={e => this.onPress(e)}>
+/*
+
           {this.props.team.map(i => {
             return (
               <MapView.Marker
@@ -163,6 +180,40 @@ export default class GameMap extends React.Component {
               </MapView.Marker>
             );
           })}
+ */
+
+    return (
+      <View style={[styles.flex]}>
+        <MapView
+          style={styles.map}
+          initialRegion={this.props.location}
+          {...mapOptions}
+          onPress={e => this.onPress(e)}>
+          {this.props.timers.filter(t => {
+            const role = this._findMyRole(this.props.game, this.props.user);
+            return role === 'set' || (role === 'brake' && t.setup >= 100) 
+          }).map(t => {
+            let value = 100;
+            if(t.state === 'created') {
+              value = t.setup;
+            }
+            if(t.state === 'wear') {
+              value = 100 - t.wear;
+            }
+            return (
+              <MapView.Marker
+                onPress={() => {}}
+                coordinate={{
+                  latitude: t.point.latitude,
+                  longitude: t.point.longitude,
+                }}
+                centerOffset={{ x: 0, y: 0 }}
+                anchor={{ x: 0, y: 0 }}>
+                <Text style={styles.marker}>{value}</Text>
+              </MapView.Marker>
+            );
+          })}
+
           {this.props.games.map(g => {
             return (
               <MapView.Circle
@@ -206,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    borderWidth: 0.5,
+    borderWidth: 1.5,
     borderColor: '#d6d7da',
     height: 50,
     width: 50,
@@ -216,7 +267,6 @@ const styles = StyleSheet.create({
    // ...StyleSheet.absoluteFillObject,
     top: 0,
     left: 0,
-
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Constants.statusBarHeight,
@@ -241,5 +291,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: width,
+  },
+  marker: {
+    fontWeight: 'bold',
+    borderRadius: 20,
+    borderWidth: 1.0,
+    borderColor: '#ff000',
   },
 });

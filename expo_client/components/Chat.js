@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 17,
+    paddingTop: Constants.statusBarHeight,
   },
   footer: {
     flexDirection: 'row',
@@ -172,6 +173,6 @@ const styles = StyleSheet.create({
   btnClose: {
     position: 'absolute',
     top: Constants.statusBarHeight + 5,
-    left: 10,
+    right: 10,
   }
 });

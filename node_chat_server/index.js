@@ -4,13 +4,11 @@ const WebSocket = require("ws");
 const PLAYERS_TO_START = 2;
 
 const GAME_STATE_NOT_STARTED = "not_started";
-const GAME_STATE_PENDING_START = "started";
 const GAME_STATE_PLAY = "play";
 const GAME_STATE_FINISH = "finish";
 
-const GAME_BEFORE_TIMEOUT = 1 * 60 * 1000;
-const GAME_TIMELINE_SIZE = 60 * 60 * 1000;
-const GAME_BUFFER_TIMEOUTS = 10 * 60 * 1000;
+const POINT_SET_TIMEOUT = 5 * 60 * 1000;
+const POINT_REMOVE_TIMEOUT = POINT_SET_TIMEOUT;
 
 const GAME_RADIUS_M = 1000;
 
@@ -22,6 +20,7 @@ class Server {
     this.gameIdx = 0;
     this.tokens = [];
     this.gameTimers = [];
+    this.players = [];
 
     this.wss = new WebSocket.Server({
       port: port | 3000,
@@ -155,22 +154,48 @@ class Server {
   }
   
 
-  onAction(socket, action) {
+  onAction(socket, point) {
     const myGame = this._getMyGame(socket);
     if (!myGame) {
       return this._sendError(socket, "You is not connected in specified game");
     }
 
-    if (!myGame.state !== GAME_STATE_PLAY) {
+    if (myGame.state !== GAME_STATE_PLAY) {
       return this._sendError(socket, "Specified game is not started");
     }
+   
+    const role = this._findMyRole(myGame, socket);
 
-    try {
-      this._processAction(socket, myGame, action);
-      this._sendTimers();
-    } catch (error) {
-      this._sendError(socket, `Unexpected error`);
+    console.log(socket.user, role);
+    console.log(myGame);
+
+    if (!role) {
+      return this._sendError(socket, "You is not allowed for this action");
     }
+
+    console.log(role);
+    
+    if (role === 'set') {
+      this.gameTimers.push({
+        owner: socket.user,
+        role: "set",
+        created_at: Date.now(),
+        set: 1,
+        brake: 1,
+        game: myGame,
+        state: 'created',
+        wear: 0,
+        setup: 0,
+        point,
+      });
+    } else {
+      if(this.gameTimers.length > 0) {
+        this.gameTimers[0].state = 'wear';
+      }
+    }
+
+    this._calcTimers();
+    this._sendTimers();
   }
 
   _sendError(socket, message) {
@@ -181,93 +206,43 @@ class Server {
   }
 
   _calcTimers() {
-    this.gameTimers.forEach(t => {});
+    this.gameTimers.forEach(t => {
+      if(t.state === 'created') {
+        if(t.setup >= 100) {
+          t.state = 'setup';
+        } else {
+          t.setup += t.set * 5;
+        }
+      } else if(t.state === 'wear') {
+        if(t.wear >= 100) {
+          t.state = 'destroyed';
+        } else {
+          t.wear += t.brake * 5;
+        }
+      }
+    });
+    // remove all destroyed
+    this.gameTimers = this.gameTimers.filter(i => i.wear < 100);
   }
 
   _sendTimers() {
+    this._broadcast(this, {
+      type: "sync_timer",
+      message: this.gameTimers,
+    });
+
+    /*
     this.gameTimers.forEach(t => {
+      console.log(t.game.players);
       t.game.players.forEach(p => {
-        const socket = this._getSocketByToken(p.id);
+        const socket = this._getSocketByToken(p);
         socket.ws.send({
           type: "sync_timer",
           message: t
         });
       });
     });
-  }
-
-  _processAction(socket, game, action) {
-    const role = this._findMyRole(myGame, socket);
-    if (!role) {
-      throw "You role is not existing";
-    }
-
-    // проверяем началный таймаут
-    if (Date.now() - game.started_at < GAME_BEFORE_TIMEOUT) {
-      throw "Before timeout";
-    }
-
-/*
-------------------------------
-|   SET       |    BRAKE     |
-------------------------------
-|      1      |      1       |
-------------------------------
-|             |              |
-|             |     10       |
-|             |--------------|
-|             |              |
-|      60     |              |
-|             |              |
-|             |      60      |
-|             |              |
-|-------------|              |
-|             |              |
-|     10      |              |
-------------------------------
-*/
-
-    // если роль set разрешаем установку таймеров
-    if (role === "set") {
-      // проверяем буферный таймаут чтобы понять что не находимся в последней стадии игры
-      if (
-        Date.now() - game.started_at >=
-        GAME_BEFORE_TIMEOUT + GAME_TIMELINE_SIZE
-      ) {
-        throw "Game timeout";
-      }
-
-      // проверям на пересечение (TODO)
-      // если пересекается то добавляем к таймеру
-      // если не пересекатся то создаем новый
-
-      if (this.gameTimers.length <= 0) {
-        this.gameTimers.push({
-          owner: socket.id,
-          role: "set",
-          created_at: Date.now(),
-          set: 1,
-          brake: 0,
-          game
-        });
-      } else {
-        this.gameTimers[0].set++;
-      }
-    } else {
-      // если роль brake проверям буферный таймаут иначе даем выполнить снос
-      if (
-        Date.now() - game.started_at <
-        GAME_BEFORE_TIMEOUT + GAME_BUFFER_TIMEOUTS
-      ) {
-        throw "You not allowed this action";
-      }
-
-      // проверяем на попадание (TODO)
-      // если попадает в таймер установленный коммандой set, то добавлем ему
-      if (this.gameTimers.length <= 0) {
-        this.gameTimers[0].brake++;
-      }
-    }
+    */
   }
 
   _isGameReadyToStart(game) {
@@ -275,10 +250,10 @@ class Server {
   }
 
   _findMyRole(game, socket) {
-    if (game.set.indexOf(socket.id) !== -1) {
+    if (game.set.indexOf(socket.user) !== -1) {
       return "set";
     }
-    if (game.brake.indexOf(socket.id) !== -1) {
+    if (game.brake.indexOf(socket.user) !== -1) {
       return "brake";
     }
   }
@@ -345,7 +320,7 @@ class Server {
     }));
 
     if (this._isGameReadyToStart(game)) {
-      game.state = GAME_STATE_PENDING_START; // setup timer to before game timeout
+      game.state = GAME_STATE_PLAY; // setup timer to before game timeout
       game.players = _.shuffle(game.players);
       game.set = game.players.slice(0, PLAYERS_TO_START / 2);
       game.brake = game.players.slice(PLAYERS_TO_START / 2);

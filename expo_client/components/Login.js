@@ -29,6 +29,7 @@ export default class Login extends React.Component {
               'https://cdn4.iconfinder.com/data/icons/pictype-free-vector-icons/16/location-alt-512.png',
           }}
         />
+        <Text style={styles.h1}>URBATONIA</Text>
         <View style={styles.inputContainer}>
           <Image
             style={styles.inputIcon}
@@ -59,6 +60,11 @@ export default class Login extends React.Component {
 }
 
 const styles = StyleSheet.create({
+  h1: {
+    fontSize: 30,
+    fontFamily: "Arial",
+    marginBottom: 50,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -66,8 +72,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCDCDC',
   },
   logo: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     justifyContent: 'center',
     marginBottom: 20,
   },
