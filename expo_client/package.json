@@ -1,0 +1,20 @@
+{
+  "name": "greenelephant",
+  "version": "0.0.0",
+  "description": "No description",
+  "author": null,
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "dependencies": {
+    "expo": "^32.0.0",
+    "react": "16.5.0",
+    "react-native": "https://github.com/expo/react-native/archive/sdk-32.0.0.tar.gz",
+    "geolib": "2.0.24",
+    "nachos-ui": "0.2.0-beta.1",
+    "prop-types": "*",
+    "react-native-gifted-chat": "0.8.2",
+    "react-native-paper": "2.2.8",
+    "sentry-expo": "1.12.0",
+    "socket.io-client": "2.2.0"
+  }
+}
